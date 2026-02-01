@@ -35,7 +35,7 @@ import torch
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import parse_env_cfg
 
-import Pick_and_Place.tasks  # noqa: F401
+import pick_and_place_project.tasks  # noqa: F401
 
 
 def main():

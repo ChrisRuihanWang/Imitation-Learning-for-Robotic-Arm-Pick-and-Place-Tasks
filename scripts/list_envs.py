@@ -35,7 +35,7 @@ simulation_app = app_launcher.app
 import gymnasium as gym
 from prettytable import PrettyTable
 
-import Pick_and_Place.tasks  # noqa: F401
+import pick_and_place_project.tasks  # noqa: F401
 
 
 def main():

@@ -117,7 +117,7 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 # import logger
 logger = logging.getLogger(__name__)
 
-import Pick_and_Place.tasks  # noqa: F401
+import pick_and_place_project.tasks  # noqa: F401
 
 # config shortcuts
 if args_cli.agent is None:
