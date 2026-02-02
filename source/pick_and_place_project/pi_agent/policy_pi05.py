@@ -6,7 +6,7 @@ import torch
 class Pi05Policy:
     """封装 pi0.5 的策略接口（当前占位：返回全零动作）"""
 
-    def __init__(self, action_dim: int = 7):
+    def __init__(self, action_dim: int = 6):
         self.action_dim = action_dim
 
     def _extract_tensor(self, obs: Any) -> torch.Tensor:
