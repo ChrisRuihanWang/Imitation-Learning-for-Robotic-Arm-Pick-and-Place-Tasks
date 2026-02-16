@@ -18,14 +18,6 @@ def main():
         from pick_and_place_project.tasks.pick_place_gr1t2_pi import PickPlaceGR1T2PiEnv, PickPlaceGR1T2PiEnvCfg
         env = PickPlaceGR1T2PiEnv(PickPlaceGR1T2PiEnvCfg())
 
-    import inspect
-    print("CFG CLASS:", type(env.cfg))
-    print("CFG MODULE:", type(env.cfg).__module__)
-    print("CFG FILE:", inspect.getfile(type(env.cfg)))
-    print("cfg episode_length_s:", getattr(env.cfg, "episode_length_s", None))
-    print("env max_episode_length:", getattr(env, "max_episode_length", None))
-    print("env dt:", getattr(env, "dt", None))
-
     # ---- Reset + warm-up ----
     obs, info = env.reset()
     for _ in range(10):
@@ -36,10 +28,6 @@ def main():
     device = env.device
 
     # ---- Print shapes ----
-    print("Action space:", env.action_space)
-    print("State shape:", obs["policy"].shape, obs["policy"].dtype)
-    print("Image keys:", list(obs["images"].keys()))
-    print("RGB shape:", obs["images"]["rgb"].shape, obs["images"]["rgb"].dtype)
     if "wrist_rgb" in obs["images"]:
         print("Wrist RGB shape:", obs["images"]["wrist_rgb"].shape, obs["images"]["wrist_rgb"].dtype)
     else:
@@ -202,12 +190,6 @@ def main():
         np.savez_compressed(path, **out)
         print(f"[SAVE] {path.name}  T={T}  keys={list(out.keys())}")
 
-        # quick sanity stats
-        rr = out["rgb_raw"]
-        print(f"       rgb_raw: shape={rr.shape} min/max/std=({rr.min():.4f},{rr.max():.4f},{rr.std():.4f})")
-        wr = out["wrist_rgb_raw"]
-        print(f"       wrist_raw: shape={wr.shape} min/max/std=({wr.min():.4f},{wr.max():.4f},{wr.std():.4f})")
-
         episode_state.clear()
         episode_rgb_raw.clear()
         episode_wrist_raw.clear()
@@ -295,7 +277,6 @@ def main():
             if "o" in pressed: a[0, 5] -= drot
 
             a[0, 6] = float(grip_cmd)
-
             # step
             obs2, rew, done, trunc, info = env.step(a)
 

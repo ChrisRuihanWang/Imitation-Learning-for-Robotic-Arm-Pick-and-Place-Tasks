@@ -10,7 +10,6 @@ import torch
 import cv2
 from isaaclab.app import AppLauncher
 
-
 # ========= 1. 解析 IsaacLab 启动参数并创建唯一的 App =========
 parser = argparse.ArgumentParser()
 AppLauncher.add_app_launcher_args(parser)
@@ -39,17 +38,13 @@ def make_env() -> PickPlaceGR1T2PiEnv:
 
 # ========= 4. 从 env 取出图像 + state，并转成 ACT 需要的格式 =========
 def get_obs_from_obsdict(obs) -> Tuple[np.ndarray, np.ndarray]:
-    # =====================
-    # 1️⃣ state
-    # =====================
-    state = obs["policy"]  # [num_envs, 18]
+    # 1) state: 23 维
+    state = obs["policy"]  # [num_envs, 23]
     if torch.is_tensor(state):
         state = state[0].detach().cpu().numpy()
     state = state.astype(np.float32)
 
-    # =====================
-    # 2️⃣ image
-    # =====================
+    # 2) image
     img = obs["images"]["rgb"]  # [num_envs, H, W, 3] or [num_envs, 3, H, W]
     if torch.is_tensor(img):
         img = img[0].detach().cpu().numpy()
@@ -64,72 +59,87 @@ def get_obs_from_obsdict(obs) -> Tuple[np.ndarray, np.ndarray]:
     else:
         img_u8 = np.clip(img, 0.0, 255.0).astype(np.uint8)
 
-    # =====================
-    # 3️⃣ 🔥 关键：resize 到训练分辨率
-    # =====================
+    # 3) resize 到训练分辨率 256x256
     img_u8 = cv2.resize(
         img_u8,
         (256, 256),  # (W,H)
         interpolation=cv2.INTER_AREA,
     )
 
-    return img_u8, state
-
+    return img_u8, state  # img: (256,256,3), state: (23,)
 
 
 # ========= 5. 主循环：env + ACT policy =========
 def main():
-    scale_j = 50         # joint delta gain：先从 200/400/800 试
-    max_step = 0.065         # 每步 joint delta 的硬限幅（很关键！先 0.05~0.15 试）
-    alpha = 0.25           # EMA 平滑系数：0.1 更稳，0.3 更灵敏
-    prev = np.zeros(7, np.float32)  # 上一步平滑后的 action
+    scale_j = 150.0          # 关节缩放
+    max_step = 0.1
+    alpha = 0.2
+    prev = np.zeros(7, np.float32)
+
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     proj_root = Path(__file__).resolve().parents[1]
-    ckpt_dir = (proj_root / "checkpoints/act_pickplace/step_0008000").resolve()
+
+    ckpt_dir = (proj_root /"checkpoints/act_pickplace/step_00010000/pretrained_model").resolve()
     agent = ActAgent(ckpt_dir, device="cuda")
+
     env = make_env()
     obs, info = env.reset()
+
     done = False
     t = 0
-    while simulation_app.is_running() and not done and t < 2000:
-        img_u8, state_18 = get_obs_from_obsdict(obs)
 
-        # 1) 不再额外 clip 到 [-1,1]
-        chunk = agent.predict_chunk(img_u8, state_18)   # (T,7)
+    while simulation_app.is_running() and not done and t < 2000:
+        img_u8, state_23 = get_obs_from_obsdict(obs)
+
+        # 1) 策略预测
+        chunk = agent.predict_chunk(img_u8, state_23)   # (T,7)
         raw = chunk[0].astype(np.float32)               # (7,)
 
-        # 1) 分离 joint / gripper
-        j = raw[:6] * scale_j          # 只放大关节 delta
-        g = raw[6]                     # 夹爪不放大（或单独阈值化）
+        raw_j = raw[:6]
+        raw_g = raw[6]
 
-        # 2) joint delta per-step 限幅（防发疯）
+        # 2) 关节 / 夹爪连续控制
+        # 关节：先缩放，再限幅
+        j = raw_j * scale_j
         j = np.clip(j, -max_step, max_step)
 
-        # 3) 夹爪建议二值化/滞回（可选，但很推荐）
-        #    你现在 g 常接近 0.98，说明它可能一直“开/合”某一边
-        g = 1.0 if g > 0.0 else -1.0
+        # 夹爪：保留连续输出，轻微放大后 clip 到 [-1,1]
+        g = raw_g * 1.5
+        g = float(np.clip(g, -1.0, 1.0))
 
         a = np.concatenate([j, [g]]).astype(np.float32)
 
-        # 4) EMA 平滑（关节 + 夹爪都可以平滑，但夹爪通常不用）
-        a = (1 - alpha) * prev + alpha * a
+        # 3) EMA 平滑
+        a = (1.0 - alpha) * prev + alpha * a
         prev = a
 
-        # 5) 最终安全 clip（如果 env 还 rescale_to_limits，这一步也不会坏事）
+        # 4) 最终安全 clip
         a = np.clip(a, -1.0, 1.0)
 
         action = torch.from_numpy(a)[None, :].to(getattr(env, "device", "cpu"))
+
+        # 环境一步 + 渲染
         obs, reward, terminated, truncated, info = env.step(action)
+        simulation_app.update()
 
         done = bool(terminated.any()) or bool(truncated.any())
-
         t += 1
+
+        # ====== Debug 打印 ======
+        # 每步都看 raw_g，方便观察它是否在接近物体时有明显变化
+        print(
+            f"[t={t}] raw_j={np.round(raw_j,3)}, "
+            f"raw_g={raw_g:.3f}, scaled_j={np.round(j,3)}, "
+            f"scaled_g={g:.3f}"
+        )
+
         if t % 20 == 0:
-            print(f"[t={t}] raw    :", raw)
-            print(f"[t={t}] applied:", a)
-        print("state range:", state_18.min(), state_18.max())
+            print(f"[t={t}] applied a = {np.round(a,3)}")
+        print("state range:", state_23.min(), state_23.max())
+
     env.close()
     simulation_app.close()
+
 
 
 if __name__ == "__main__":

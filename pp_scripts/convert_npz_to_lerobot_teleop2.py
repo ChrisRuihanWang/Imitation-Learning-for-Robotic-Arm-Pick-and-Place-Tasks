@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple, Any, Dict
+from typing import Optional, Tuple, Any, Dict, List
 
 import numpy as np
 from PIL import Image
@@ -13,7 +13,6 @@ from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 
 def _parse_resize_hw(s: str) -> Optional[Tuple[int, int]]:
-    """Parse '256,256' -> (256,256). Return None if empty."""
     s = s.strip()
     if not s:
         return None
@@ -48,24 +47,13 @@ class Args:
     write_info_meta: bool = False
 
 
-def _require_keys(d: Any, keys: list[str], fname: str) -> None:
+def _require_keys(d: Any, keys: List[str], fname: str) -> None:
     missing = [k for k in keys if k not in d]
     if missing:
         raise KeyError(f"Missing keys in {fname}: {missing}")
 
 
-def _build_state_names(state_dim: int) -> list[str]:
-    """
-    Match your ObservationsCfg concat order (state_dim=23):
-      joint_pos_rel (9) +
-      joint_vel_rel (9) +
-      gripper_joint_pos_rel (2) +
-      gripper_joint_vel_rel (2) +
-      gripper_width (1)
-
-    Note: joint_pos_rel/vel_rel default includes ALL joints for Franka:
-      7 arm + 2 fingers = 9
-    """
+def _build_state_names(state_dim: int) -> List[str]:
     joint_names = [
         "panda_joint1", "panda_joint2", "panda_joint3", "panda_joint4",
         "panda_joint5", "panda_joint6", "panda_joint7",
@@ -86,6 +74,32 @@ def _build_state_names(state_dim: int) -> list[str]:
     return state_names
 
 
+def _raw_float_to_u8(img_raw: np.ndarray) -> np.ndarray:
+    """
+    Convert your saved float raw (typically centered/normalized) -> uint8 RGB for LeRobot.
+    Uses robust percentile stretch per-frame to avoid black/noise.
+    """
+    x = img_raw.astype(np.float32)
+    x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # If it already looks like [0,1], use directly
+    mn, mx = float(x.min()), float(x.max())
+    if mx <= 1.5 and mn >= -0.1:
+        y = np.clip(x, 0.0, 1.0)
+        return (y * 255.0).astype(np.uint8)
+
+    # Percentile stretch in raw space
+    lo = float(np.percentile(x, 1.0))
+    hi = float(np.percentile(x, 99.0))
+    if hi <= lo + 1e-8:
+        # totally flat -> blank
+        return np.zeros_like(x, dtype=np.uint8)
+
+    y = (x - lo) / (hi - lo)
+    y = np.clip(y, 0.0, 1.0)
+    return (y * 255.0).astype(np.uint8)
+
+
 def main(args: Args) -> None:
     npz_dir = args.npz_dir.expanduser().resolve()
     if not npz_dir.exists():
@@ -93,7 +107,6 @@ def main(args: Args) -> None:
 
     resize_hw = _parse_resize_hw(args.resize_hw)
 
-    # FINAL dataset folder (must not exist before create())
     root_parent = args.root.expanduser().resolve()
     dataset_dir = (root_parent / args.repo_id).resolve()
 
@@ -116,20 +129,20 @@ def main(args: Args) -> None:
 
     # ---------- Infer shapes ----------
     sample = np.load(npz_files[0], allow_pickle=True)
-    _require_keys(sample, ["state", "action", "rgb", "wrist_rgb"], npz_files[0].name)
+    _require_keys(sample, ["state", "action", "rgb_raw", "wrist_rgb_raw"], npz_files[0].name)
 
-    state0 = sample["state"]        # (T,S)
-    action0 = sample["action"]      # (T,A)
-    rgb0 = sample["rgb"]            # (T,H,W,3)
-    wrist0 = sample["wrist_rgb"]    # (T,h,w,3)
+    state0 = sample["state"]              # (T,S) float32
+    action0 = sample["action"]            # (T,A) float32
+    rgb0 = sample["rgb_raw"]              # (T,H,W,3) float32
+    wrist0 = sample["wrist_rgb_raw"]      # (T,h,w,3) float32
 
     if state0.ndim != 2 or action0.ndim != 2 or rgb0.ndim != 4 or wrist0.ndim != 4:
         raise ValueError(
             f"Unexpected shapes:\n"
             f"  state {state0.shape}\n"
             f"  action {action0.shape}\n"
-            f"  rgb {rgb0.shape}\n"
-            f"  wrist_rgb {wrist0.shape}"
+            f"  rgb_raw {rgb0.shape}\n"
+            f"  wrist_rgb_raw {wrist0.shape}"
         )
 
     _, state_dim = state0.shape
@@ -151,7 +164,6 @@ def main(args: Args) -> None:
         overhead_shape = (H_oh, W_oh, 3)
         wrist_shape = (H_wr, W_wr, 3)
 
-    # ---------- Define features ----------
     features = {
         "observation.images.overhead": {
             "dtype": "video" if args.use_videos else "image",
@@ -175,7 +187,6 @@ def main(args: Args) -> None:
         },
     }
 
-    # ---------- Create dataset ----------
     dataset = LeRobotDataset.create(
         repo_id=args.repo_id,
         root=dataset_dir,
@@ -189,25 +200,18 @@ def main(args: Args) -> None:
     print(f"[OK] dataset_dir={dataset_dir}")
     print(f"[OK] npz_dir={npz_dir} episodes={len(npz_files)}")
     print(f"[OK] state_dim={state_dim} action_dim={action_dim}")
-    print(f"[OK] overhead={H_oh}x{W_oh} wrist={H_wr}x{W_wr} resize={resize_hw}")
+    print(f"[OK] overhead_raw={H_oh}x{W_oh} wrist_raw={H_wr}x{W_wr} resize={resize_hw}")
 
-    # ---------- Write episodes ----------
     for ep_idx, f in enumerate(npz_files):
         data = np.load(f, allow_pickle=True)
-        _require_keys(data, ["state", "action", "rgb", "wrist_rgb"], f.name)
+        _require_keys(data, ["state", "action", "rgb_raw", "wrist_rgb_raw"], f.name)
 
         state = data["state"].astype(np.float32)
         action = data["action"].astype(np.float32)
+        rgb_raw = data["rgb_raw"]
+        wrist_raw = data["wrist_rgb_raw"]
 
-        rgb = data["rgb"]
-        wrist = data["wrist_rgb"]
-
-        if rgb.dtype != np.uint8:
-            rgb = np.clip(rgb, 0, 255).astype(np.uint8)
-        if wrist.dtype != np.uint8:
-            wrist = np.clip(wrist, 0, 255).astype(np.uint8)
-
-        T = min(len(state), len(action), len(rgb), len(wrist))
+        T = min(len(state), len(action), len(rgb_raw), len(wrist_raw))
         if T < 5:
             print(f"[WARN] Skip short episode {f.name}: T={T}")
             continue
@@ -220,8 +224,11 @@ def main(args: Args) -> None:
                 meta_payload = None
 
         for t in range(T):
-            img_oh = Image.fromarray(rgb[t])
-            img_wr = Image.fromarray(wrist[t])
+            oh_u8 = _raw_float_to_u8(rgb_raw[t])
+            wr_u8 = _raw_float_to_u8(wrist_raw[t])
+
+            img_oh = Image.fromarray(oh_u8)
+            img_wr = Image.fromarray(wr_u8)
 
             if resize_hw is not None:
                 img_oh = img_oh.resize((W_out, H_out), resample=Image.BILINEAR)
@@ -244,6 +251,7 @@ def main(args: Args) -> None:
 
     print("\n[DONE] Conversion finished.")
     print("Load with:")
+    print("  from pathlib import Path")
     print("  from lerobot.datasets.lerobot_dataset import LeRobotDataset")
     print(f'  ds = LeRobotDataset("{args.repo_id}", root=Path("{dataset_dir}"))')
     print("  print(ds[0].keys())")
