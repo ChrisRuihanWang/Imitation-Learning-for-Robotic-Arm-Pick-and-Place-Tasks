@@ -129,13 +129,16 @@ def main(args: Args) -> None:
 
     # ---------- Infer shapes ----------
     sample = np.load(npz_files[0], allow_pickle=True)
-    _require_keys(sample, ["state", "action", "rgb_raw", "wrist_rgb_raw"], npz_files[0].name)
+    _require_keys(sample, ["state", "action", "rgb_raw", "wrist_rgb_raw",
+                           "oblique_rgb_raw"], 
+                  npz_files[0].name)
 
     state0 = sample["state"]              # (T,S) float32
     action0 = sample["action"]            # (T,A) float32
     rgb0 = sample["rgb_raw"]              # (T,H,W,3) float32
     wrist0 = sample["wrist_rgb_raw"]      # (T,h,w,3) float32
-
+    oblique0 = sample["oblique_rgb_raw"]
+    
     if state0.ndim != 2 or action0.ndim != 2 or rgb0.ndim != 4 or wrist0.ndim != 4:
         raise ValueError(
             f"Unexpected shapes:\n"
@@ -149,10 +152,10 @@ def main(args: Args) -> None:
     _, action_dim = action0.shape
     _, H_oh, W_oh, C_oh = rgb0.shape
     _, H_wr, W_wr, C_wr = wrist0.shape
-
-    if C_oh != 3 or C_wr != 3:
-        raise ValueError(f"Images must have 3 channels, got overhead={C_oh}, wrist={C_wr}")
-
+    _, H_ob, W_ob, C_ob = oblique0.shape
+    if C_oh != 3 or C_wr != 3 or C_ob != 3:
+        raise ValueError(f"Images must have 3 channels, got overhead={C_oh}, wrist={C_wr}, oblique={C_ob}")
+    
     state_names = _build_state_names(state_dim)
 
     # declared image shapes
@@ -160,9 +163,11 @@ def main(args: Args) -> None:
         H_out, W_out = resize_hw
         overhead_shape = (H_out, W_out, 3)
         wrist_shape = (H_out, W_out, 3)
+        oblique_shape = (H_out, W_out, 3)
     else:
         overhead_shape = (H_oh, W_oh, 3)
         wrist_shape = (H_wr, W_wr, 3)
+        oblique_shape = (H_ob, W_ob, 3)
 
     features = {
         "observation.images.overhead": {
@@ -179,6 +184,11 @@ def main(args: Args) -> None:
             "dtype": "float32",
             "shape": (state_dim,),
             "names": state_names,
+        },
+        "observation.images.oblique": {
+            "dtype": "video" if args.use_videos else "image",
+            "shape": oblique_shape,   
+            "names": ["height", "width", "channel"],
         },
         "action": {
             "dtype": "float32",
@@ -201,17 +211,19 @@ def main(args: Args) -> None:
     print(f"[OK] npz_dir={npz_dir} episodes={len(npz_files)}")
     print(f"[OK] state_dim={state_dim} action_dim={action_dim}")
     print(f"[OK] overhead_raw={H_oh}x{W_oh} wrist_raw={H_wr}x{W_wr} resize={resize_hw}")
+    print(f"[OK] overhead_raw={H_oh}x{W_oh} wrist_raw={H_wr}x{W_wr} oblique_raw={H_ob}x{W_ob} resize={resize_hw}")
 
     for ep_idx, f in enumerate(npz_files):
         data = np.load(f, allow_pickle=True)
-        _require_keys(data, ["state", "action", "rgb_raw", "wrist_rgb_raw"], f.name)
+        _require_keys(data, ["state", "action", "rgb_raw", "wrist_rgb_raw",
+                             "oblique_rgb_raw"], f.name)
 
         state = data["state"].astype(np.float32)
         action = data["action"].astype(np.float32)
         rgb_raw = data["rgb_raw"]
         wrist_raw = data["wrist_rgb_raw"]
-
-        T = min(len(state), len(action), len(rgb_raw), len(wrist_raw))
+        oblique_raw = data["oblique_rgb_raw"]
+        T = min(len(state), len(action), len(rgb_raw), len(wrist_raw),len(oblique_raw))
         if T < 5:
             print(f"[WARN] Skip short episode {f.name}: T={T}")
             continue
@@ -226,17 +238,21 @@ def main(args: Args) -> None:
         for t in range(T):
             oh_u8 = _raw_float_to_u8(rgb_raw[t])
             wr_u8 = _raw_float_to_u8(wrist_raw[t])
+            ob_u8 = _raw_float_to_u8(oblique_raw[t])
 
             img_oh = Image.fromarray(oh_u8)
             img_wr = Image.fromarray(wr_u8)
+            img_ob = Image.fromarray(ob_u8)
 
             if resize_hw is not None:
                 img_oh = img_oh.resize((W_out, H_out), resample=Image.BILINEAR)
                 img_wr = img_wr.resize((W_out, H_out), resample=Image.BILINEAR)
+                img_ob = img_ob.resize((W_out, H_out), resample=Image.BILINEAR)
 
             frame = {
                 "observation.images.overhead": img_oh,
                 "observation.images.wrist": img_wr,
+                "observation.images.oblique": img_ob, 
                 "observation.state": state[t],
                 "action": action[t],
                 "task": args.task,

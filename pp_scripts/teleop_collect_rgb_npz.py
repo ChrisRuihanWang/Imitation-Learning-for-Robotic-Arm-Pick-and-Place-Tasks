@@ -75,6 +75,7 @@ def main():
     episode_state = []
     episode_rgb_raw = []
     episode_wrist_raw = []
+    episode_oblique_raw = []
     episode_action = []
 
     # scales
@@ -147,6 +148,19 @@ def main():
             print(f"[DEBUG] saved {w_path.name}  raw[min,max,std]=({w.min():.4f},{w.max():.4f},{w.std():.4f})")
         else:
             print("[DEBUG] no wrist_rgb in obs['images'].")
+            
+        # oblique
+        if "oblique_rgb" in obs_any["images"]:
+            ob = obs_any["images"]["oblique_rgb"][0].detach().cpu().numpy()
+            ob_u8 = _raw_to_view_u8(ob)
+            ob_path = debug_dir / f"oblique_{ts}.png"
+            try:
+                import imageio.v2 as imageio
+                imageio.imwrite(str(ob_path), ob_u8)
+            except Exception:
+                from PIL import Image
+                Image.fromarray(ob_u8).save(str(ob_path))
+            print(f"[DEBUG] saved {ob_path.name}  raw[min,max,std]=({ob.min():.4f},{ob.max():.4f},{ob.std():.4f})")
 
     # ---------- episode save (RAW ONLY) ----------
     def save_episode(current_ep_id: int) -> int:
@@ -156,6 +170,7 @@ def main():
             "state": len(episode_state),
             "rgb_raw": len(episode_rgb_raw),
             "wrist_raw": len(episode_wrist_raw),
+            "oblique_rgb_raw": len(episode_oblique_raw),
             "action": len(episode_action),
         }
         T = min(lens.values())
@@ -164,6 +179,7 @@ def main():
             episode_state.clear()
             episode_rgb_raw.clear()
             episode_wrist_raw.clear()
+            episode_oblique_raw.clear()
             episode_action.clear()
             return current_ep_id
 
@@ -176,6 +192,7 @@ def main():
             "state": np.stack(episode_state[:T], axis=0).astype(np.float32),
             "rgb_raw": np.stack(episode_rgb_raw[:T], axis=0).astype(np.float32),
             "wrist_rgb_raw": np.stack(episode_wrist_raw[:T], axis=0).astype(np.float32),
+            "oblique_rgb_raw": np.stack(episode_oblique_raw[:T], axis=0).astype(np.float32),
             "action": np.stack(episode_action[:T], axis=0).astype(np.float32),
             "meta": np.array([{
                 "saved_at": datetime.now().isoformat(timespec="seconds"),
@@ -193,6 +210,7 @@ def main():
         episode_state.clear()
         episode_rgb_raw.clear()
         episode_wrist_raw.clear()
+        episode_oblique_raw.clear()
         episode_action.clear()
 
         try:
@@ -300,6 +318,16 @@ def main():
                         # last-resort blank raw
                         w = np.zeros_like(oh, dtype=np.float32)
                 episode_wrist_raw.append(w)
+
+                # ✅ oblique raw float              
+                if "oblique_rgb" in obs["images"]:
+                    ob = obs["images"]["oblique_rgb"].detach().cpu().numpy()[0].astype(np.float32, copy=True)
+                else:
+                    if len(episode_oblique_raw) > 0:
+                        ob = episode_oblique_raw[-1]
+                    else:
+                        ob = np.zeros_like(oh, dtype=np.float32)
+                episode_oblique_raw.append(ob)
 
                 # action
                 episode_action.append(a.detach().cpu().numpy()[0].astype(np.float32, copy=True))

@@ -91,7 +91,14 @@ class ObservationsCfg:
                 "data_type": "rgb",
             },
         )
-
+                # 斜视相机（新加）
+        oblique_rgb: ObsTerm = ObsTerm(
+            func=mdp.image,
+            params={
+                "sensor_cfg": SceneEntityCfg("oblique_camera"),
+                "data_type": "rgb",
+            },
+        )
         def __post_init__(self) -> None:
             self.enable_corruption = False
             self.concatenate_terms = False
@@ -247,7 +254,26 @@ class PickPlaceEnvCfg(ManagerBasedRLEnvCfg):
                 convention="ros",
             ),
         )
-
+        # ---------- 斜 45° 相机（新加） ----------
+        sim_utils.create_prim("/World/ObliqueCameraBase", "Xform")
+        self.scene.oblique_camera = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/ObliqueCamera",
+            update_period=0,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=24.0,
+                focus_distance=400.0,
+                horizontal_aperture=20.955,
+                clipping_range=(0.1, 100.0),
+            ),
+            offset=CameraCfg.OffsetCfg(
+                pos=(0.9, 0.8, 0.1),
+                rot=(-0.11732, 0.12803, 0.66533, -0.72608),
+                convention="ros",
+            ),
+        )
         print("==== DEBUG ACTION TERMS ====")
         for name, term_cfg in self.actions.__dict__.items():
             if term_cfg is None:
