@@ -78,3 +78,28 @@ __pycache__/
 *.egg-info/
 data/**
 !data/README.md
+# 之前已有的内容保持不变……
+# TacSL sensor
+**/tactile_record/*
+**/gelsight_r15_data/*
+__pycache__/
+*.pyc
+*.egg-info/
+data/**
+!data/README.md
+
+# === 下面是新增，专门拦截你现在的采集数据 ===
+
+# Teleop / lerobot 采集数据（parquet, images, videos）
+data/lerobot/
+data/teleop_npz/
+data/teleop2/
+data/check_wrist_simple/
+data/check_wrist_align/
+data/debug/
+data/videos/
+data/images/
+
+# 如果以后还有别的采集目录，也放在 data/ 下，可以统一忽略
+checkpoints/
+venv_lerobot/
