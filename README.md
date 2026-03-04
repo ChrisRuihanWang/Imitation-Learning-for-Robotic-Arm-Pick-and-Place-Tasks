@@ -9,16 +9,15 @@ The goal is to learn a **pick-and-place policy from teleoperation demonstrations
 
 ## Pipeline
 
-The project follows a standard **robot learning workflow**:
-Isaac Lab Manipulation Environment
-        ↓
-Teleoperation Demonstrations
-        ↓
-Dataset Construction (LeRobot format)
-        ↓
-Policy Training / Fine-tuning (π0.5 VLA model)
-        ↓
-Policy Deployment in Isaac Lab Simulation
+Isaac Lab Environment  
+↓  
+Teleoperation Demonstrations  
+↓  
+LeRobot Dataset Construction  
+↓  
+π0.5 VLA Policy Training  
+↓  
+Policy Deployment in Isaac Lab
 
 
 ---
