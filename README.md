@@ -87,7 +87,7 @@ Imitation-Learning-for-Robotic-Arm-Pick-and-Place-Tasks
 ├── LICENSE                                       # MIT license
 ├── pyproject.toml                                # Python project configuration
 └── .gitignore                                    # Ignore datasets, checkpoints, env files
-
+```text
 
 ---
 
