@@ -83,9 +83,12 @@ Datasets and checkpoints are **not included in this repository**.
 
 ## Future Work
 
-- Training larger **Vision-Language-Action models**
-- Improving manipulation generalization
-- Sim-to-real transfer for robotic manipulation
+Planned improvements include:
+
+- Improving teleoperation data quality
+- Training larger Vision-Language-Action models
+- Improving manipulation robustness
+- Exploring sim-to-real transfer
 
 ---
 
