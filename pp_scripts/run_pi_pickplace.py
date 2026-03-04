@@ -13,10 +13,10 @@ def main():
     obs, _ = env.reset()
 
     while simulation_app.is_running():
-        # 让 UI / 渲染更新一帧（非常关键）
+        
         simulation_app.update()
 
-        # 这里可以选择：每帧都 step，或者按键触发 step
+        
         action = policy.act(obs)
         obs, rew, terminated, truncated, info = env.step(action)
 
