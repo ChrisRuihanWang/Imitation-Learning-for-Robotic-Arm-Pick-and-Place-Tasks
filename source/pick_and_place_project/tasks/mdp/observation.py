@@ -17,7 +17,7 @@ def image_raw(
     sensor_cfg: SceneEntityCfg = SceneEntityCfg("camera"),
     data_type: str = "rgb",
 ) -> torch.Tensor:
-    """不做 normalize，直接返回摄像头原始输出."""
+   
     sensor: Camera = env.scene.sensors[sensor_cfg.name]
-    images = sensor.data.output[data_type]  # 通常是 uint8 [0,255]
+    images = sensor.data.output[data_type]  
     return images.clone()
