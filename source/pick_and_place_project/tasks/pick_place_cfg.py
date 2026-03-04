@@ -14,7 +14,7 @@ from pick_and_place_project.tasks.mdp.actions import FrankaGripperActionCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.sensors import CameraCfg
 
-# ✅ 你之前加的 width 观测函数（别删）
+
 from pick_and_place_project.tasks.mdp import observation as my_obs
 
 
@@ -38,7 +38,7 @@ class ObservationsCfg:
         joint_pos_rel: ObsTerm = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel_rel: ObsTerm = ObsTerm(func=mdp.joint_vel_rel)
 
-        # ✅ gripper joints (2 dims)
+        # gripper joints (2 dims)
         gripper_joint_pos_rel: ObsTerm = ObsTerm(
             func=mdp.joint_pos_rel,
             params={
@@ -58,7 +58,7 @@ class ObservationsCfg:
             },
         )
 
-        # ✅ width (1 dim) 让 policy “看得见抓没抓住”
+       
         gripper_width: ObsTerm = ObsTerm(
             func=my_obs.franka_gripper_width,
             params={
@@ -75,7 +75,7 @@ class ObservationsCfg:
 
     @configclass
     class ImagesCfg(ObsGroup):
-        # 顶视相机
+        
         rgb: ObsTerm = ObsTerm(
             func=mdp.image,
             params={
@@ -83,7 +83,7 @@ class ObservationsCfg:
                 "data_type": "rgb",
             },
         )
-        # 手腕相机
+        
         wrist_rgb: ObsTerm = ObsTerm(
             func=mdp.image,
             params={
@@ -91,7 +91,7 @@ class ObservationsCfg:
                 "data_type": "rgb",
             },
         )
-                # 斜视相机（新加）
+                
         oblique_rgb: ObsTerm = ObsTerm(
             func=mdp.image,
             params={
@@ -137,11 +137,11 @@ class PickPlaceEnvCfg(ManagerBasedRLEnvCfg):
             spawn=sim_utils.GroundPlaneCfg(),
         )
 
-        # ✅ 你之前加过的 dome_light（wrist 很需要）
+        
         self.scene.dome_light = AssetBaseCfg(
             prim_path="/World/Light",
             spawn=sim_utils.DomeLightCfg(
-                intensity=1000.0,      # 你之前 wrist 暗，这里直接用更亮
+                intensity=1000.0,     
                 color=(1.0, 1.0, 1.0),
             ),
         )
@@ -214,7 +214,7 @@ class PickPlaceEnvCfg(ManagerBasedRLEnvCfg):
             close_pos=0.0,
         )
 
-        # ---------- 顶视相机 ----------
+       
         sim_utils.create_prim("/World/OverheadCameraBase", "Xform")
         self.scene.camera = CameraCfg(
             prim_path="{ENV_REGEX_NS}/OverheadCamera",
@@ -230,12 +230,12 @@ class PickPlaceEnvCfg(ManagerBasedRLEnvCfg):
             ),
             offset=CameraCfg.OffsetCfg(
                 pos=(0.6, 0.0, 1.2),
-                rot=(0.0, 1.0, 0.0, 0.0),   # 对应 W=1,X=0,Y=0,Z=0
+                rot=(0.0, 1.0, 0.0, 0.0),  
                 convention="ros",
             ),
         )
 
-        # ---------- 手腕相机（挂在 panda_hand 上） ----------
+       
         self.scene.wrist_camera = CameraCfg(
             prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
             update_period=0,
@@ -249,12 +249,12 @@ class PickPlaceEnvCfg(ManagerBasedRLEnvCfg):
                 clipping_range=(0.01, 10.0),
             ),
             offset=CameraCfg.OffsetCfg(
-                pos=(0.05, 0.00, 0.08),           # 你后面想调的就调这里
-                rot=(0.0, 0.0, 0.0, 1.0),         # 先默认
+                pos=(0.05, 0.00, 0.08),          
+                rot=(0.0, 0.0, 0.0, 1.0),         
                 convention="ros",
             ),
         )
-        # ---------- 斜 45° 相机（新加） ----------
+        
         sim_utils.create_prim("/World/ObliqueCameraBase", "Xform")
         self.scene.oblique_camera = CameraCfg(
             prim_path="{ENV_REGEX_NS}/ObliqueCamera",

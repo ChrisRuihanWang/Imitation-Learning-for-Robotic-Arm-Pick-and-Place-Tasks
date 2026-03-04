@@ -9,10 +9,10 @@ from typing import Dict, Any
 import numpy as np
 import torch
 
-# ✅ 最稳：尽早声明离线（避免任何 HF hub 请求）
+
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
-# ==== fake accelerate（仅在缺失时注入）====
+
 try:
     import accelerate  # noqa: F401
 except Exception:
@@ -29,9 +29,9 @@ except Exception:
 
     fake_accelerate.Accelerator = DummyAccelerator
     sys.modules["accelerate"] = fake_accelerate
-# ========================================
 
-# ✅ 关键：直接导入 ACT，避免 lerobot.policies.__init__ 引入 Groot/transformers
+
+
 from lerobot.policies.act.modeling_act import ACTPolicy
 from lerobot.processor.pipeline import PolicyProcessorPipeline
 
@@ -88,11 +88,11 @@ class ActAgent:
 
         batch = self.preprocessor(batch)
 
-        # 2) preprocessor 之后，补齐 ACT 需要的 key（以防它没做）
+        
         if "observation.environment_state" not in batch and "observation.state" in batch:
             batch["observation.environment_state"] = batch["observation.state"]
 
-        # 3) 同理，补齐 ACT 可能需要的 observation.images 结构（list）
+        
         if "observation.images" not in batch and "observation.images.overhead" in batch:
             batch["observation.images"] = [batch["observation.images.overhead"]]
 
@@ -108,14 +108,14 @@ class ActAgent:
         else:
             actions_hat = out
 
-        # ✅ postprocess：兼容 action/actions 两种键
+        
         pp_out = self.postprocessor({"action": actions_hat})
         if "action" in pp_out:
             actions_hat = pp_out["action"]
         elif "actions" in pp_out:
             actions_hat = pp_out["actions"]
         else:
-            # 兜底：直接用 pp_out
+            
             actions_hat = next(iter(pp_out.values()))
 
         return actions_hat.squeeze(0).detach().cpu().numpy().astype(np.float32)

@@ -26,9 +26,9 @@ def _parse_resize_hw(s: str) -> Optional[Tuple[int, int]]:
 class Args:
     # Input
     npz_dir: Path
-    repo_id: str  # e.g. "local/pickplace_teleop2"
+    repo_id: str 
 
-    # Output parent directory (dataset will be created at root / repo_id)
+    
     root: Path = Path("data/lerobot")
 
     # Data meaning
@@ -37,13 +37,13 @@ class Args:
     robot_type: str = "sim_franka"
 
     # Images
-    resize_hw: str = ""   # e.g. "256,256" or empty for no resize
+    resize_hw: str = ""   
     use_videos: bool = True
 
     # Overwrite existing dataset_dir
     overwrite: bool = False
 
-    # Optional: store npz["meta"] into frame["info"]["meta"]
+    
     write_info_meta: bool = False
 
 
@@ -82,13 +82,13 @@ def _raw_float_to_u8(img_raw: np.ndarray) -> np.ndarray:
     x = img_raw.astype(np.float32)
     x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # If it already looks like [0,1], use directly
+   
     mn, mx = float(x.min()), float(x.max())
     if mx <= 1.5 and mn >= -0.1:
         y = np.clip(x, 0.0, 1.0)
         return (y * 255.0).astype(np.uint8)
 
-    # Percentile stretch in raw space
+   
     lo = float(np.percentile(x, 1.0))
     hi = float(np.percentile(x, 99.0))
     if hi <= lo + 1e-8:

@@ -92,7 +92,7 @@ def main():
         except Exception:
             return str(k)
 
-    # --------- raw -> view (ONLY for debug PNG) ----------
+   
     def _raw_to_view_u8(x_raw: np.ndarray) -> np.ndarray:
         """Robustly make raw float image viewable as uint8 for debugging."""
         x = x_raw.astype(np.float32)
@@ -162,7 +162,7 @@ def main():
                 Image.fromarray(ob_u8).save(str(ob_path))
             print(f"[DEBUG] saved {ob_path.name}  raw[min,max,std]=({ob.min():.4f},{ob.max():.4f},{ob.std():.4f})")
 
-    # ---------- episode save (RAW ONLY) ----------
+    # ---------- episode save ----------
     def save_episode(current_ep_id: int) -> int:
         nonlocal episode_state, episode_rgb_raw, episode_wrist_raw, episode_action
 
