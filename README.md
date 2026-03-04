@@ -59,32 +59,34 @@ Policy Deployment in Isaac Lab
 ---
 
 ## Repository Structure
+
+```text
 Imitation-Learning-for-Robotic-Arm-Pick-and-Place-Tasks
 │
 ├── pp_scripts/                                   # End-to-end pipeline scripts
 │   ├── teleop_collect_rgb_npz.py                 # Collect teleop demonstrations (RGB + state/action) -> .npz
-│   ├── convert_npz_to_lerobot_teleop2.py         # Convert .npz demonstrations to LeRobot dataset format
-│   ├── act_infer.py                              # Policy inference / rollout evaluation (to be migrated to π0.5 naming)
-│   └── run_pi_pickplace.py                       # Deploy trained π0.5 policy back into Isaac Lab simulation
+│   ├── convert_npz_to_lerobot_teleop2.py         # Convert demonstrations to LeRobot dataset format
+│   ├── act_infer.py                              # Policy inference / rollout evaluation
+│   └── run_pi_pickplace.py                       # Deploy trained π0.5 policy in Isaac Lab
 │
 ├── source/pick_and_place_project/                # Custom Isaac Lab project package
 │   ├── __init__.py
-│   ├── pi_agent/                                 # π0.5 policy wrapper & integration
-│   │   └── policy_pi05.py                         # π0.5 interface (load model, run inference, action post-processing)
+│   ├── pi_agent/
+│   │   └── policy_pi05.py                        # π0.5 policy wrapper
 │   │
-│   └── tasks/                                    # Pick-and-place task implementation
-│       ├── pick_place_cfg.py                      # Task config (scene, robot, sensors, controllers, etc.)
-│       ├── pick_place_gr1t2_pi.py                 # Task environment entry (registration + wiring task, robot, cameras)
+│   └── tasks/
+│       ├── pick_place_cfg.py                     # Task configuration
+│       ├── pick_place_gr1t2_pi.py                # Task environment entry
 │       │
-│       └── mdp/                                  # MDP components (Isaac Lab manager-based style)
-│           ├── actions.py                          # Action space definition (e.g., arm/gripper commands)
-│           ├── observation.py                      # Observation construction (state + multi-view RGB, normalization)
-│           └── terminations.py                     # Episode termination conditions (success/failure/timeouts)
+│       └── mdp/
+│           ├── actions.py                        # Action definitions
+│           ├── observation.py                    # Observation construction
+│           └── terminations.py                   # Episode termination logic
 │
-├── README.md                                      # Project documentation
-├── LICENSE                                        # MIT license
-├── pyproject.toml                                 # Python package / build configuration
-└── .gitignore                                     # Ignore datasets, checkpoints, local env files, etc.
+├── README.md                                     # Project documentation
+├── LICENSE                                       # MIT license
+├── pyproject.toml                                # Python project configuration
+└── .gitignore                                    # Ignore datasets, checkpoints, env files
 
 
 ---
