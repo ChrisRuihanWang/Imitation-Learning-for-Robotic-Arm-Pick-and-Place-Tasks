@@ -35,7 +35,7 @@ class PickPlaceGR1T2PiEnvCfg(PickPlaceEnvCfg_PLAY):
 
 
 class PickPlaceGR1T2PiEnv(ManagerBasedRLEnv):
-    """reset() 后注入噪声（Noise｜随机扰动）：objects / robot / camera。"""
+    
 
     
     def _default_root_state_w(self, obj):
@@ -69,10 +69,7 @@ class PickPlaceGR1T2PiEnv(ManagerBasedRLEnv):
         min_dist: float,
         max_tries: int,
     ) -> torch.Tensor:
-        """
-        采样 cube 的 (x,y) 并满足与 basket 的最小距离约束。
-        返回 shape (n,2).
-        """
+       
         xy = torch.empty((n, 2), device=device)
        
         valid = torch.zeros((n,), dtype=torch.bool, device=device)
@@ -124,7 +121,7 @@ class PickPlaceGR1T2PiEnv(ManagerBasedRLEnv):
 
         
         basket_state = self._default_root_state_w(basket).clone()
-        basket_xy = basket_state[:, 0:2].clone()  # 固定位置
+        basket_xy = basket_state[:, 0:2].clone() 
         basket_state[:, 3:7] = self._rand_yaw_quat(n, device, self.cfg.basket_yaw_deg)
         basket.write_root_pose_to_sim(basket_state[:, 0:7])
 
