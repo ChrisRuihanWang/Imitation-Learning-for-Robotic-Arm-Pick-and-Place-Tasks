@@ -24,7 +24,7 @@ Policy Deployment in Isaac Lab
 
 ## Demo
 
-*(Add a GIF or short video here later)*
+![Pick and Place Task](assets/demo.gif)
 
 
 ---
