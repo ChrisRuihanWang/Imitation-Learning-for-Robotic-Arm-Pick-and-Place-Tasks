@@ -14,9 +14,9 @@ class FrankaGripperAction(ActionTerm):
         super().__init__(cfg, env)
         self.robot = env.scene[cfg.asset_name]
 
-        # 使用 find_joints，得到关节 id（int 列表）和名字
+        
         joint_ids, joint_names = self.robot.find_joints(list(cfg.joint_names))
-        # 转成 tensor，供 set_joint_position_target 使用
+        
         self.joint_ids = torch.as_tensor(joint_ids, dtype=torch.long, device=env.device)
 
         self._raw_actions: torch.Tensor | None = None
@@ -48,7 +48,7 @@ class FrankaGripperAction(ActionTerm):
 class FrankaGripperActionCfg(ActionTermCfg):
     """Config for 1D gripper command mapped to both finger joints."""
 
-    # 直接绑定 term 类
+    
     class_type: type[ActionTerm] = FrankaGripperAction
 
     asset_name: str = "robot"
